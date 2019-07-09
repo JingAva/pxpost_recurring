@@ -1,0 +1,202 @@
+<?php
+#******************************************************************************
+#* Name          	: PxPay_Sample_Curl.php
+#* Description   	: Payment Express PxPay PHP cURL Sample
+#* Copyright	 	: Payment Express 2017(c)
+#* Date          	: 2017-04-10
+#* References    	: https://www.paymentexpress.com/developer-e-commerce-paymentexpress-hosted-pxpay
+#*@version 		    : 2.0
+#* Author 		    : Payment Express DevSupport
+#******************************************************************************
+
+# This file is a sample demonstrating integration with the PxPay interface using PHP with the cURL extension installed.
+#Inlcude PxPay objects
+include "PxPay_Curl.inc.php";
+$PxPay_Url    = "https://sec.paymentexpress.com/pxaccess/pxpay.aspx";
+# Please update below with the PxPay credentials - if the PxPay credentials are not available, please contact suppport@paymentexpress.com to receive them.
+$PxPay_Userid = "";
+$PxPay_Key    = "";
+
+$pxpay = new PxPay_Curl( $PxPay_Url, $PxPay_Userid, $PxPay_Key );
+if (isset($_REQUEST["result"]))
+{
+  # this is a redirection from the payments page.
+  print_result();
+}
+else
+{
+  # this is a fresh request -- display the purchase form.
+  redirect_form();
+}
+
+
+#******************************************************************************
+# This function receives information back from the payments page,
+# and displays it to the user.
+#******************************************************************************
+function print_result()
+{
+  global $pxpay;
+  
+  $enc_hex = $_REQUEST["result"];
+  #getResponse method in PxPay object returns PxPayResponse object
+  #which encapsulates all the response data
+  $rsp = $pxpay->getResponse($enc_hex);
+  
+  
+  # the following are the fields available in the PxPayResponse object
+  $Success           = $rsp->getSuccess();   # =1 when request succeeds
+  $AmountSettlement  = $rsp->getAmountSettlement();
+  $AuthCode          = $rsp->getAuthCode();  # from bank
+  $CardName          = $rsp->getCardName();  # e.g. "Visa"
+  $CardNumber        = $rsp->getCardNumber(); # Truncated card number
+  $DateExpiry        = $rsp->getDateExpiry(); # in mmyy format
+  $DpsBillingId      = $rsp->getDpsBillingId();
+  $BillingId    	 = $rsp->getBillingId();
+  $CardHolderName    = $rsp->getCardHolderName();
+  $DpsTxnRef	     = $rsp->getDpsTxnRef();
+  $TxnType           = $rsp->getTxnType();
+  $TxnData1          = $rsp->getTxnData1();
+  $TxnData2          = $rsp->getTxnData2();
+  $TxnData3          = $rsp->getTxnData3();
+  $CurrencySettlement= $rsp->getCurrencySettlement();
+  $ClientInfo        = $rsp->getClientInfo(); # The IP address of the user who submitted the transaction
+  $TxnId             = $rsp->getTxnId();
+  $CurrencyInput     = $rsp->getCurrencyInput();
+  $EmailAddress      = $rsp->getEmailAddress();
+  $MerchantReference = $rsp->getMerchantReference();
+  $ResponseText		 = $rsp->getResponseText();
+  $TxnMac            = $rsp->getTxnMac(); # An indication as to the uniqueness of a card used in relation to others
+  $RecurringMode     = $rsp->getRecurringMode();
+  
+  
+  if ($rsp->getSuccess() == "1")
+  {
+    $result = "The transaction was approved.";
+    
+		# Sending invoices/updating order status within database etc.
+    
+    if (!isProcessed($TxnId))
+    {
+      
+      
+    }
+    
+  }
+  else
+  {
+    $result = "The transaction was declined.";
+  }
+  print <<<HTMLEOF
+  <html>
+  <head>
+  <title>Payment Express PxPay transaction result</title>
+  </head>
+  <body>
+  <h1>Payment Express PxPay transaction result</h1>
+  <p>$result</p>
+  <table border=1>
+	<tr><th>Name</th>				<th>Value</th> </tr>
+	<tr><td>Success</td>			<td>$Success</td></tr>
+	<tr><td>TxnType</td>			<td>$TxnType</td></tr>
+	<tr><td>CurrencyInput</td>		<td>$CurrencyInput</td></tr>
+	<tr><td>MerchantReference</td>	<td>$MerchantReference</td></tr>
+	<tr><td>TxnData1</td>			<td>$TxnData1</td></tr>
+	<tr><td>TxnData2</td>			<td>$TxnData2</td></tr>
+	<tr><td>TxnData3</td>			<td>$TxnData3</td></tr>
+	<tr><td>AuthCode</td>			<td>$AuthCode</td></tr>
+	<tr><td>CardName</td>			<td>$CardName</td></tr>
+	<tr><td>CardHolderName</td>		<td>$CardHolderName</td></tr>
+	<tr><td>CardNumber</td>			<td>$CardNumber</td></tr>
+	<tr><td>DateExpiry</td>			<td>$DateExpiry</td></tr>
+	<tr><td>ClientInfo</td>			<td>$ClientInfo</td></tr>
+	<tr><td>TxnId</td>				<td>$TxnId</td></tr>
+	<tr><td>EmailAddress</td>		<td>$EmailAddress</td></tr>
+	<tr><td>DpsTxnRef</td>			<td>$DpsTxnRef</td></tr>
+	<tr><td>BillingId</td>			<td>$BillingId</td></tr>
+	<tr><td>DpsBillingId</td>		<td>$DpsBillingId</td></tr>
+	<tr><td>AmountSettlement</td>	<td>$AmountSettlement</td></tr>
+	<tr><td>CurrencySettlement</td>	<td>$CurrencySettlement</td></tr>
+	<tr><td>TxnMac</td>				<td>$TxnMac</td></tr>
+  <tr><td>ResponseText</td>		<td>$ResponseText</td></tr>
+  <tr><td>RecurringMode</td>		<td>$RecurringMode</td></tr>
+  </table>
+  </body>
+  </html>
+HTMLEOF;
+}
+
+#******************************************************************************
+# Database lookup to check the status of the order or shopping cart
+#******************************************************************************
+
+function isProcessed($TxnId)
+{
+  # Check database if order relating to TxnId has alread been processed
+	return false;
+}
+
+
+#******************************************************************************
+# This function formats data into a request and redirects to the
+# Payments Page.
+#******************************************************************************
+function redirect_form()
+{
+  global $pxpay;
+  
+  $request = new PxPayRequest();
+  
+  $http_host   = getenv("HTTP_HOST");
+  $request_uri = getenv("SCRIPT_NAME");
+  $server_url  = "http://$http_host";
+  #$script_url  = "$server_url/$request_uri"; //using this code before PHP version 4.3.4
+  #$script_url  = "$server_url$request_uri"; //Using this code after PHP version 4.3.4
+  $script_url = (version_compare(PHP_VERSION, "4.3.4", ">=")) ?"$server_url$request_uri" : "$server_url/$request_uri";
+  $EnableAddBillCard  = 1;
+  
+  # the following variables are read from the form
+  $Quantity = $_REQUEST["Quantity"];
+  $MerchantReference = sprintf('%04x%04x-%04x-%04x',mt_rand(0, 0xffff),mt_rand(0, 0xffff),mt_rand(0, 0xffff),mt_rand(0, 0x0fff) | 0x4000);
+  $Address1 = $_REQUEST["Address1"];
+  $Address2 = $_REQUEST["Address2"];
+  $Address3 = $_REQUEST["Address3"];
+  
+  #Calculate AmountInput
+  $AmountInput = 21.50;
+  
+  #Generate a unique identifier for the transaction
+  $TxnId = uniqid("ID");
+  
+  #Set PxPay properties
+  $request->setMerchantReference($MerchantReference);
+  $request->setAmountInput($AmountInput);
+  $request->setTxnData1($Address1);
+  $request->setTxnData2($Address2);
+  $request->setTxnData3($Address3);
+  $request->setTxnType("Purchase");
+  $request->setCurrencyInput("NZD");
+  $request->setEmailAddress("your_email@paymentexpress.com");
+  $request->setUrlFail($script_url);			# can be a dedicated failure page
+  $request->setUrlSuccess($script_url);			# can be a dedicated success page
+  $request->setTxnId($TxnId);
+  $request->setRecurringMode("recurringinitial");
+  #The following properties are not used in this case
+  $request->setEnableAddBillCard($EnableAddBillCard);
+  # $request->setBillingId($BillingId);
+  # $request->setOpt($Opt);
+
+  
+  #Call makeRequest function to obtain input XML
+ $request_string = $pxpay->makeRequest($request);
+  #Obtain output XML
+  $response = new MifMessage($request_string);
+  
+  #Parse output XML
+  $url = $response->get_element_text("URI");
+  $valid = $response->get_attribute("valid");
+  
+  #Redirect to payment page
+  header("Location: ".$url);
+}
+?>
